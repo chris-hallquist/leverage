@@ -123,7 +123,7 @@ class MonthData {
     boolean leap = gCalendar.isLeapYear(month.getYear());
     float days = 365 + (leap ? 1 : 0);
 
-    this.dailyRate = Math.pow(/* tRate */ + ADDITIONAL_RATE + 1, 1 / days) - 1;
+    this.dailyRate = Math.pow(tRate + ADDITIONAL_RATE + 1, 1 / days) - 1;
   }
 
   public YearMonth getMonth() {
