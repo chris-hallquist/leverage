@@ -11,6 +11,8 @@ public class Historical {
   private static final DateFormat dFormat = new SimpleDateFormat("yyyy-MM-dd");
   private static final DateTimeFormatter dtFormatter = DateTimeFormatter.ISO_LOCAL_DATE;
 
+  private static final long DAY_IN_MILLIS = 1000 * 60 * 60 * 24;
+
   private static ArrayList<MonthData> allMonthData = new ArrayList();
   private static LinkedList<OneDayReturn> dailyReturns = new LinkedList();
 
@@ -21,11 +23,51 @@ public class Historical {
     retrieveData();
 
     double stocks = 100;
+    double mixed = 100; // Half a normal fund, half a 2x fund
+    double etf2x = 100;
+    double etf3x = 100;
+
+    Date previous = null;
+
     for (OneDayReturn r : dailyReturns) {
-      stocks *= r.getReturns();
+      double returns = r.getReturns();
+      stocks *= returns;
+
+      Date d = r.getDate();
+      
+      int elapsed;
+      if (previous == null) {
+        elapsed = 1; // By default, assume 1 day since the last trading day
+      } else {
+        elapsed = (int) ((d.getTime() - previous.getTime())/DAY_IN_MILLIS);        
+      }
+
+      YearMonth ym = r.getYearMonth();
+      Integer mi = monthIndex.get(ym);
+
+      if (mi == null)
+        break;
+
+      MonthData mData = allMonthData.get(mi);
+      double interest = mData.getDailyRate();
+
+      mixed *= Math.pow(1 - interest / 2, elapsed);
+      mixed *= (returns * 1.5 - 0.5);
+
+      etf2x *= Math.pow(1 - interest, elapsed);
+      etf2x *= (returns * 2 - 1);
+
+      etf3x *= Math.pow(1 - interest * 2, elapsed);
+      etf3x *= (returns * 3 - 2);
+  
+      previous = d;
     }
 
+    System.out.println("Last day: " + previous.toString());
     System.out.println("Total stock returns over this time period: " + stocks + "%");
+    System.out.println("Total mixed returns over this time period: " + mixed + "%");
+    System.out.println("Total 2XETF returns over this time preiod: " + etf2x + "%");
+    System.out.println("Total 3XETF returns over this time preiod: " + etf3x + "%");
   }
 
   public static void retrieveData() 
@@ -79,9 +121,9 @@ class MonthData {
     this.tRate = tRate;
 
     boolean leap = gCalendar.isLeapYear(month.getYear());
-    int days = 365 + (leap ? 1 : 0);
+    float days = 365 + (leap ? 1 : 0);
 
-    this.dailyRate = Math.log(tRate + ADDITIONAL_RATE + 1)/Math.log(days) - 1;
+    this.dailyRate = Math.pow(/* tRate */ + ADDITIONAL_RATE + 1, 1 / days) - 1;
   }
 
   public YearMonth getMonth() {
