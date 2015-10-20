@@ -7,6 +7,7 @@ import java.util.*;
 public class Historical {
   private static final String STOCK_FILENAME = "table.csv";
   private static final String TBILL_FILENAME = "TB3MS.csv";
+  private static final int PRICE_COL = 6;
 
   private static final DateFormat dFormat = new SimpleDateFormat("yyyy-MM-dd");
   private static final DateTimeFormatter dtFormatter = DateTimeFormatter.ISO_LOCAL_DATE;
@@ -22,16 +23,15 @@ public class Historical {
       throws FileNotFoundException, IOException, ParseException {
     retrieveData();
 
-    double stocks = 100;
-    double mixed = 100; // Half a normal fund, half a 2x fund
-    double etf2x = 100;
-    double etf3x = 100;
+    ConfigurableFund stocks = new ConfigurableFund(100, 1);
+    ConfigurableFund mixed = new ConfigurableFund(100, 1.20);
+    ConfigurableFund etf2x = new ConfigurableFund(100, 2);
+    ConfigurableFund etf3x = new ConfigurableFund(100, 3);
 
     Date previous = null;
 
     for (OneDayReturn r : dailyReturns) {
       double returns = r.getReturns();
-      stocks *= returns;
 
       Date d = r.getDate();
       
@@ -51,23 +51,19 @@ public class Historical {
       MonthData mData = allMonthData.get(mi);
       double interest = mData.getDailyRate();
 
-      mixed *= Math.pow(1 - interest / 2, elapsed);
-      mixed *= (returns * 1.5 - 0.5);
+      stocks.updateValue(returns, interest, elapsed); 
+      mixed.updateValue(returns, interest, elapsed);
+      etf2x.updateValue(returns, interest, elapsed);
+      etf3x.updateValue(returns, interest, elapsed);
 
-      etf2x *= Math.pow(1 - interest, elapsed);
-      etf2x *= (returns * 2 - 1);
-
-      etf3x *= Math.pow(1 - interest * 2, elapsed);
-      etf3x *= (returns * 3 - 2);
-  
       previous = d;
     }
 
     System.out.println("Last day: " + previous.toString());
-    System.out.println("Total stock returns over this time period: " + stocks + "%");
-    System.out.println("Total mixed returns over this time period: " + mixed + "%");
-    System.out.println("Total 2XETF returns over this time preiod: " + etf2x + "%");
-    System.out.println("Total 3XETF returns over this time preiod: " + etf3x + "%");
+    System.out.println("Total stock returns over this time period: " + stocks.getValue() + "%");
+    System.out.println("Total mixed returns over this time period: " + mixed.getValue() + "%");
+    System.out.println("Total 2XETF returns over this time preiod: " + etf2x.getValue() + "%");
+    System.out.println("Total 3XETF returns over this time preiod: " + etf3x.getValue() + "%");
   }
 
   public static void retrieveData() 
@@ -85,8 +81,8 @@ public class Historical {
     for (int i = 0; i < rawArr.size() - 1; i++) {
       Date date = dFormat.parse(rawArr.get(i)[0]);
 
-      double todaysClose = Double.parseDouble(rawArr.get(i)[4]);
-      double yesterdaysClose = Double.parseDouble(rawArr.get(i + 1)[4]);
+      double todaysClose = Double.parseDouble(rawArr.get(i)[PRICE_COL]);
+      double yesterdaysClose = Double.parseDouble(rawArr.get(i + 1)[PRICE_COL]);
       double returns = todaysClose / yesterdaysClose;
 
       dailyReturns.addFirst(new OneDayReturn(date, returns));
@@ -107,6 +103,26 @@ public class Historical {
   }
 }
 
+class ConfigurableFund {
+  private final double leverage;
+  private double value;
+
+  public ConfigurableFund(double initial_value, double leverage) {
+    this.value = initial_value;
+    this.leverage = leverage;
+  }
+
+  public double getValue() {
+    return value;
+  }
+
+  public void updateValue(double returns, double interest, int elapsed) {
+    if (leverage > 1)
+      value *= Math.pow(1 - interest * (leverage - 1), elapsed);
+    value *= (returns * leverage - (leverage - 1));
+  }
+}
+
 class MonthData {
   private static final GregorianCalendar gCalendar = new GregorianCalendar();
 
@@ -114,7 +130,7 @@ class MonthData {
   private double tRate;
   private double dailyRate;
 
-  private static final double ADDITIONAL_RATE = 0.01;
+  private static final double ADDITIONAL_RATE = 0.005;
 
   public MonthData(YearMonth month, double tRate) {
     this.month = month;

@@ -2,6 +2,8 @@ import java.util.*;
 
 public class Leverage {
   public static void main(String[] args) {
+    long startTime = System.currentTimeMillis();
+
     int trials = Integer.parseInt(args[0]);
 
     Fund fund = new Fund();
@@ -25,6 +27,9 @@ public class Leverage {
     System.out.println("Fund median: " + median(fundResults));
     System.out.println("Daily2X median: " + median(daily2XResults));
     System.out.println("Monthly2X median: " + median(monthlyResults));
+
+    long endTime = System.currentTimeMillis();
+    System.out.println("That took " + (endTime - startTime) + " milliseconds");
    }
 
   static double mean (double[] nums) {
@@ -95,7 +100,7 @@ class Monthly2X extends Fund {
   double getYearlyReturns() {
     double returns = 1.0;
 
-    for (int i = 0; i < MONTH; i++) {
+    for (int i = 0; i < 12; i++) {
       returns *= getMonthlyReturns();
     }
 
